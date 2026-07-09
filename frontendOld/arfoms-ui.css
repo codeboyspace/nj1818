@@ -1,0 +1,128 @@
+/* ARFOMS shared top header - common look across every module page. */
+
+:root {
+    --arfoms-topbar-h: 60px;
+}
+
+/* Push normal-flow page content below the fixed common header. */
+body {
+    padding-top: var(--arfoms-topbar-h);
+}
+
+/* Pages that already reserve their own top space don't need extra padding. */
+html[data-page="flights"] body,
+html[data-page="search-flights"] body {
+    padding-top: 0;
+}
+
+/* Hide the inconsistent per-page header bars so only the common one shows. */
+.arfoms-hide-native .topbar,
+.arfoms-hide-native .top-nav,
+.arfoms-hide-native .app-header,
+.arfoms-hide-native .redbus-nav,
+.arfoms-hide-native .gradient-header-bar {
+    display: none !important;
+}
+
+/* The common header. */
+.arfoms-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--arfoms-topbar-h);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 14px;
+    background: linear-gradient(90deg, #020617 0%, #0b1f5e 55%, #1d4ed8 100%);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(2, 6, 23, 0.25);
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* Back button - far left corner. */
+.arfoms-back {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.10);
+    color: #fff;
+    font-size: 1.25rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.arfoms-back:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* Brand: flight logo + ARFOMS, left side. */
+.arfoms-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+.arfoms-brand svg {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+}
+
+/* Centered page title. */
+.arfoms-title {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0.96;
+}
+
+/* Right cluster: role + logout. */
+.arfoms-user {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+.arfoms-role {
+    font-size: 0.82rem;
+    font-weight: 600;
+    opacity: 0.9;
+    white-space: nowrap;
+}
+.arfoms-logout {
+    border: 0;
+    background: #ef4444;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 14px;
+    font: 600 0.82rem 'Segoe UI', Arial, sans-serif;
+    cursor: pointer;
+}
+.arfoms-logout:hover {
+    background: #dc2626;
+}
+
+@media (max-width: 560px) {
+    .arfoms-title { display: none; }
+    .arfoms-role { display: none; }
+}
+

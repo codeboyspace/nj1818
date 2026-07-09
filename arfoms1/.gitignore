@@ -1,0 +1,16 @@
+# Compiled class files
+target/
+*.class
+
+# IntelliJ IDEA settings (Crucial so you don't mess up your team's IDEs)
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Log files
+*.log
+
+# Frontend/OS junk
+.DS_Store
+Thumbs.db

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ARFOMS Admin Console</title>
+    <script src="auth.js"></script>
+    <link rel="stylesheet" href="arfoms-ui.css">
+    <script src="arfoms-ui.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+    <style>
+        body { background: #eef2f9; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 56px; }
+        .section-title { font-weight: 800; color: #0f172a; margin: 26px 0 14px; display: flex; align-items: center; gap: 10px; }
+        .card-tile { border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; box-shadow: 0 10px 28px rgba(2,6,23,.06); }
+        .module-card { padding: 18px; display: flex; flex-direction: column; gap: 10px; height: 100%; }
+        .module-top { display: flex; align-items: center; justify-content: space-between; }
+        .module-name { font-weight: 700; color: #0f172a; }
+        .pill { font-size: .72rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+        .pill-up { background: #dcfce7; color: #166534; }
+        .pill-down { background: #fee2e2; color: #991b1b; }
+        .metric { font-size: 1.8rem; font-weight: 800; color: #1d4ed8; line-height: 1; }
+        .metric small { font-size: .8rem; color: #64748b; font-weight: 600; }
+        .acct-row { padding: 16px 18px; border-bottom: 1px solid #eef2f7; }
+        .acct-row:last-child { border-bottom: none; }
+        .role-badges .badge { background: #eff4ff; color: #1d4ed8; font-weight: 600; margin: 2px; }
+        .form-label { font-size: .76rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .04em; }
+        .btn-brand { background: linear-gradient(135deg, #0b1f5e, #2563eb); color: #fff; border: 0; font-weight: 600; }
+        .btn-brand:hover { filter: brightness(1.07); color: #fff; }
+        .muted { color: #64748b; font-size: .85rem; }
+        #toast { position: fixed; right: 18px; bottom: 18px; z-index: 100001; min-width: 260px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+                <h3 class="fw-bold mb-1"><i class="fa-solid fa-user-shield me-2 text-primary"></i>Admin Console</h3>
+                <div class="muted">Monitor every module and manage all role credentials.</div>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" onclick="refreshAll()"><i class="fa-solid fa-rotate me-1"></i>Refresh</button>
+        </div>
+
+        <!-- Module overview -->
+        <div class="section-title"><i class="fa-solid fa-gauge-high text-primary"></i> Module Overview</div>
+        <div id="overviewGrid" class="row g-3">
+            <div class="col-12 muted">Loading module status…</div>
+        </div>
+
+        <!-- Credential management -->
+        <div class="section-title"><i class="fa-solid fa-key text-primary"></i> Role Credentials</div>
+        <div class="muted mb-2">Change the username and/or password for any module role. Leave a field blank to keep it unchanged.</div>
+        <div id="accountsCard" class="card-tile">
+            <div class="acct-row muted">Loading accounts…</div>
+        </div>
+    </div>
+
+    <div id="toast" class="alert"></div>
+
+    <script>
+        const ADMIN_API = 'http://localhost:8210/api/admin';
+
+        // Only an Admin session may view this console.
+        (function guardAdmin() {
+            const s = window.ARFOMS_AUTH && window.ARFOMS_AUTH.get();
+            if (!s || s.role !== 'Admin') {
+                window.location.href = 'login.html';
+            }
+        })();
+
+        function toast(message, ok) {
+            const t = document.getElementById('toast');
+            t.className = 'alert ' + (ok ? 'alert-success' : 'alert-danger');
+            t.textContent = message;
+            t.style.display = 'block';
+            clearTimeout(window.__toastTimer);
+            window.__toastTimer = setTimeout(() => { t.style.display = 'none'; }, 4000);
+        }
+
+        async function loadOverview() {
+            const grid = document.getElementById('overviewGrid');
+            try {
+                const res = await fetch(`${ADMIN_API}/overview`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const modules = await res.json();
+                grid.innerHTML = modules.map(m => `
+                    <div class="col-12 col-sm-6 col-lg-4">
+                        <div class="card-tile module-card">
+                            <div class="module-top">
+                                <span class="module-name">${m.label}</span>
+                                <span class="pill ${m.status === 'UP' ? 'pill-up' : 'pill-down'}">${m.status}</span>
+                            </div>
+                            <div class="metric">${m.count}<small> records</small></div>
+                            <div class="d-flex gap-2 mt-auto">
+                                <button class="btn btn-brand btn-sm flex-fill" onclick="openModule('${m.page}')">
+                                    <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Open
+                                </button>
+                            </div>
+                        </div>
+                    </div>`).join('');
+            } catch (e) {
+                grid.innerHTML = `<div class="col-12 text-danger">Could not load overview (${e.message}). Is the gateway running and are you signed in as Admin?</div>`;
+            }
+        }
+
+        async function loadAccounts() {
+            const card = document.getElementById('accountsCard');
+            try {
+                const res = await fetch(`${ADMIN_API}/accounts`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const accounts = await res.json();
+                card.innerHTML = accounts.map(a => `
+                    <div class="acct-row">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-12 col-md-3">
+                                <div class="fw-bold">${a.displayName}</div>
+                                <div class="role-badges">${a.roles.map(r => `<span class="badge">${r}</span>`).join('')}</div>
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <label class="form-label">Username</label>
+                                <input class="form-control form-control-sm" id="u_${a.key}" value="${a.username}" autocomplete="off" />
+                            </div>
+                            <div class="col-12 col-md-3">
+                                <label class="form-label">New password</label>
+                                <input class="form-control form-control-sm" id="p_${a.key}" type="password" placeholder="Leave blank to keep" autocomplete="new-password" />
+                            </div>
+                            <div class="col-12 col-md-3 d-grid">
+                                <button class="btn btn-brand btn-sm" onclick="saveAccount('${a.key}', '${a.displayName}')">
+                                    <i class="fa-solid fa-floppy-disk me-1"></i>Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>`).join('');
+            } catch (e) {
+                card.innerHTML = `<div class="acct-row text-danger">Could not load accounts (${e.message}).</div>`;
+            }
+        }
+
+        async function saveAccount(key, displayName) {
+            const username = document.getElementById('u_' + key).value.trim();
+            const password = document.getElementById('p_' + key).value;
+            if (!username) { toast('Username cannot be empty.', false); return; }
+
+            try {
+                const res = await fetch(`${ADMIN_API}/accounts/${key}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                if (res.status === 409) { toast('That username is already in use.', false); return; }
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+
+                document.getElementById('p_' + key).value = '';
+
+                const session = window.ARFOMS_AUTH.get();
+                const changedOwnAccount = session && session.username &&
+                    (key === 'admin' || session.username === username);
+
+                if (key === 'admin' && changedOwnAccount) {
+                    toast('Admin credentials updated. Please sign in again.', true);
+                    setTimeout(() => window.ARFOMS_AUTH.logout(), 1500);
+                    return;
+                }
+
+                toast(`${displayName} credentials updated.`, true);
+            } catch (e) {
+                toast('Update failed (' + e.message + ').', false);
+            }
+        }
+
+        function openModule(page) { window.location.href = page; }
+
+        function refreshAll() { loadOverview(); loadAccounts(); }
+
+        document.addEventListener('DOMContentLoaded', refreshAll);
+    </script>
+</body>
+</html>
+
+
