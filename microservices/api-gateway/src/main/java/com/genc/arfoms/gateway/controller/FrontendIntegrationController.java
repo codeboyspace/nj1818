@@ -1,6 +1,10 @@
 package com.genc.arfoms.gateway.controller;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.genc.arfoms.gateway.client.BookingFeignClient;
+import com.genc.arfoms.gateway.client.CrewFeignClient;
+import com.genc.arfoms.gateway.client.FlightFeignClient;
+import com.genc.arfoms.gateway.client.LoyaltyFeignClient;
+import com.genc.arfoms.gateway.client.AuthFeignClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -14,12 +18,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -39,9 +41,6 @@ public class FrontendIntegrationController {
     private static final Set<String> INTERNATIONAL_AIRPORTS = Set.of("DXB", "SIN", "LHR", "JFK", "BKK");
     private static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    // Maps a flight-number prefix (airline designator) to a display name. The
-    // flight-service does not store an airline/flight name, so the reservation
-    // agent UI derives one from the flight number (e.g. "AI1001" -> "Air India").
     private static final Map<String, String> AIRLINE_NAMES = Map.of(
             "AI", "Air India",
             "6E", "IndiGo",
@@ -52,26 +51,24 @@ public class FrontendIntegrationController {
             "QP", "Akasa Air"
     );
 
-    private final RestClient flightClient;
-    private final RestClient bookingClient;
-    private final RestClient crewClient;
-    private final RestClient loyaltyClient;
+    private final FlightFeignClient flightClient;
+    private final BookingFeignClient bookingClient;
+    private final CrewFeignClient crewClient;
+    private final LoyaltyFeignClient loyaltyClient;
+    private final AuthFeignClient authClient;
     private final Map<Long, Map<String, Object>> bookingViewState = new ConcurrentHashMap<>();
 
     public FrontendIntegrationController(
-            @Value("${gateway.flight-service.base-url}") String flightBaseUrl,
-            @Value("${gateway.booking-service.base-url}") String bookingBaseUrl,
-            @Value("${gateway.crew-service.base-url}") String crewBaseUrl,
-            @Value("${gateway.loyalty-service.base-url}") String loyaltyBaseUrl) {
-        // Plain (non-load-balanced) clients: the base URLs are absolute
-        // http://localhost:<port> addresses, so calls go straight to each
-        // service. Using a @LoadBalanced builder here treated the host as a
-        // Eureka service id and failed with HTTP 500 when resolution/registry
-        // fetch was unavailable.
-        this.flightClient = RestClient.builder().baseUrl(flightBaseUrl).build();
-        this.bookingClient = RestClient.builder().baseUrl(bookingBaseUrl).build();
-        this.crewClient = RestClient.builder().baseUrl(crewBaseUrl).build();
-        this.loyaltyClient = RestClient.builder().baseUrl(loyaltyBaseUrl).build();
+            FlightFeignClient flightClient,
+            BookingFeignClient bookingClient,
+            CrewFeignClient crewClient,
+            LoyaltyFeignClient loyaltyClient,
+            AuthFeignClient authClient) {
+        this.flightClient = flightClient;
+        this.bookingClient = bookingClient;
+        this.crewClient = crewClient;
+        this.loyaltyClient = loyaltyClient;
+        this.authClient = authClient;
     }
 
     @GetMapping("/flights")
@@ -111,11 +108,7 @@ public class FrontendIntegrationController {
         createBookingPayload.put("seatNumber", str(payload.get("seat")));
         createBookingPayload.put("fareAmount", new BigDecimal(String.valueOf(payload.getOrDefault("fare", 0))));
 
-        Map<String, Object> saved = bookingClient.post()
-                .uri("/api/bookings")
-                .body(createBookingPayload)
-                .retrieve()
-                .body(Map.class);
+        Map<String, Object> saved = bookingClient.createBooking(createBookingPayload);
 
         Long bookingId = asLong(saved == null ? null : saved.get("bookingId"));
         if (bookingId == null || saved == null) {
@@ -129,10 +122,7 @@ public class FrontendIntegrationController {
 
     @GetMapping("/flights/bookings")
     public List<Map<String, Object>> getLegacyBookings() {
-        List<Map<String, Object>> list = bookingClient.get()
-                .uri("/api/bookings")
-                .retrieve()
-                .body(List.class);
+        List<Map<String, Object>> list = bookingClient.getBookings();
         if (list == null) {
             return List.of();
         }
@@ -141,10 +131,7 @@ public class FrontendIntegrationController {
 
     @GetMapping("/flights/confirmation/{bookingId}")
     public Map<String, Object> getLegacyBookingConfirmation(@PathVariable Long bookingId) {
-        Map<String, Object> booking = bookingClient.get()
-                .uri("/api/bookings/{id}", bookingId)
-                .retrieve()
-                .body(Map.class);
+        Map<String, Object> booking = bookingClient.getBooking(bookingId);
         if (booking == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found");
         }
@@ -158,11 +145,7 @@ public class FrontendIntegrationController {
         request.put("passengerName", str(state.getOrDefault("primaryPassengerName", "Guest Passenger")));
         request.put("seatNumber", str(payload.get("seat")));
 
-        Map<String, Object> updated = bookingClient.patch()
-                .uri("/api/bookings/{id}", bookingId)
-                .body(request)
-                .retrieve()
-                .body(Map.class);
+        Map<String, Object> updated = bookingClient.updateBooking(bookingId, request);
         if (updated == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to modify booking");
         }
@@ -176,10 +159,7 @@ public class FrontendIntegrationController {
 
     @PostMapping("/flights/{bookingId}/cancel")
     public Map<String, Object> cancelLegacyBooking(@PathVariable Long bookingId) {
-        Map<String, Object> cancelled = bookingClient.patch()
-                .uri("/api/bookings/{id}/cancel", bookingId)
-                .retrieve()
-                .body(Map.class);
+        Map<String, Object> cancelled = bookingClient.cancelBooking(bookingId);
         if (cancelled == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to cancel booking");
         }
@@ -188,10 +168,7 @@ public class FrontendIntegrationController {
 
     @GetMapping("/airline/api/seats")
     public Map<String, Object> getSeatInventory(@RequestParam Long flightId) {
-        List<Map<String, Object>> allBookings = bookingClient.get()
-                .uri("/api/bookings")
-                .retrieve()
-                .body(List.class);
+        List<Map<String, Object>> allBookings = bookingClient.getBookings();
 
         Set<String> booked = (allBookings == null ? List.<Map<String, Object>>of() : allBookings).stream()
                 .filter(b -> Objects.equals(asLong(b.get("flightId")), flightId))
@@ -221,10 +198,7 @@ public class FrontendIntegrationController {
 
     @GetMapping("/api/crew/roster/{crewMemberName}")
     public List<Map<String, Object>> getCrewRosterByName(@PathVariable String crewMemberName) {
-        List<Map<String, Object>> roster = crewClient.get()
-                .uri("/api/crew/roster")
-                .retrieve()
-                .body(List.class);
+        List<Map<String, Object>> roster = crewClient.getCrewRoster();
         if (roster == null) {
             return List.of();
         }
@@ -236,40 +210,28 @@ public class FrontendIntegrationController {
     @PutMapping("/api/crew/swap/{assignmentId}")
     public Map<String, Object> swapCrewLegacy(@PathVariable Long assignmentId, @RequestBody Map<String, Object> payload) {
         String newCrewMemberName = str(payload.get("newCrewMemberName"));
-        return crewClient.patch()
-                .uri("/api/crew/{id}/swap", assignmentId)
-                .body(Map.of("crewMemberName", newCrewMemberName))
-                .retrieve()
-                .body(Map.class);
+        return crewClient.swapCrew(assignmentId, Map.of("crewMemberName", newCrewMemberName));
     }
 
     @GetMapping("/api/loyalty/member/{memberId}")
     public Map<String, Object> getLoyaltyMemberLegacy(@PathVariable Long memberId) {
-        return loyaltyClient.get().uri("/api/loyalty/{id}", memberId).retrieve().body(Map.class);
+        return loyaltyClient.getLoyaltyMember(memberId);
     }
 
     @GetMapping("/api/loyalty/members")
     public List<Map<String, Object>> getLoyaltyMembersLegacy() {
-        List<Map<String, Object>> members = loyaltyClient.get().uri("/api/loyalty").retrieve().body(List.class);
+        List<Map<String, Object>> members = loyaltyClient.getLoyaltyMembers();
         return members == null ? List.of() : members;
     }
 
     @PostMapping("/api/loyalty/credit")
     public Map<String, Object> creditLoyaltyLegacy(@RequestParam Long memberId, @RequestParam int miles) {
-        return loyaltyClient.patch()
-                .uri("/api/loyalty/{id}/credit", memberId)
-                .body(Map.of("miles", miles))
-                .retrieve()
-                .body(Map.class);
+        return loyaltyClient.creditLoyalty(memberId, Map.of("miles", miles));
     }
 
     @PostMapping("/api/loyalty/redeem")
     public Map<String, Object> redeemLoyaltyLegacy(@RequestParam Long memberId, @RequestParam int miles) {
-        return loyaltyClient.patch()
-                .uri("/api/loyalty/{id}/redeem", memberId)
-                .body(Map.of("miles", miles))
-                .retrieve()
-                .body(Map.class);
+        return loyaltyClient.redeemLoyalty(memberId, Map.of("miles", miles));
     }
 
     @GetMapping("/api/v1/flights")
@@ -308,7 +270,7 @@ public class FrontendIntegrationController {
         request.put("businessFare", asBigDecimal(payload.get("premiumFare")));
         request.put("firstFare", asBigDecimal(payload.get("firstFare")));
 
-        Map<String, Object> saved = flightClient.post().uri("/api/flights").body(request).retrieve().body(Map.class);
+        Map<String, Object> saved = flightClient.createFlight(request);
         if (saved == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to create flight");
         }
@@ -323,12 +285,6 @@ public class FrontendIntegrationController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Flight not found");
         }
 
-        // Both the departure/arrival times and the status are optional on the
-        // scheduler UI. Only forward the schedule PATCH when BOTH times are
-        // supplied (the flight-service requires arrival to be after departure
-        // and rejects null times with a 400, which would otherwise surface here
-        // as a 500). Likewise, only forward the status PATCH when a status is
-        // provided. If nothing is supplied, return the current flight unchanged.
         Map<String, Object> updated = flight;
 
         String departure = normalizeDateTime(str(payload.get("departureTime")));
@@ -338,20 +294,12 @@ public class FrontendIntegrationController {
             scheduleReq.put("departureTime", departure);
             scheduleReq.put("arrivalTime", arrival);
 
-            updated = flightClient.patch()
-                    .uri("/api/flights/{id}/schedule", flightId)
-                    .body(scheduleReq)
-                    .retrieve()
-                    .body(Map.class);
+            updated = flightClient.updateFlightSchedule(flightId, scheduleReq);
         }
 
         String status = str(payload.get("flightStatus"));
         if (!status.isBlank()) {
-            updated = flightClient.patch()
-                    .uri("/api/flights/{id}/status", flightId)
-                    .body(Map.of("flightStatus", status))
-                    .retrieve()
-                    .body(Map.class);
+            updated = flightClient.updateFlightStatus(flightId, Map.of("flightStatus", status));
         }
 
         return updated == null ? Map.of() : toSchedulerFlightView(updated);
@@ -370,11 +318,7 @@ public class FrontendIntegrationController {
         req.put("businessFare", asBigDecimal(payload.get("premiumFare")));
         req.put("firstFare", asBigDecimal(payload.get("firstFare")));
 
-        Map<String, Object> updated = flightClient.patch()
-                .uri("/api/flights/{id}/fare-class", flightId)
-                .body(req)
-                .retrieve()
-                .body(Map.class);
+        Map<String, Object> updated = flightClient.updateFlightFares(flightId, req);
         return updated == null ? Map.of() : toSchedulerFlightView(updated);
     }
 
@@ -385,11 +329,7 @@ public class FrontendIntegrationController {
         if (flightId == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Flight not found");
         }
-        flightClient.delete().uri("/api/flights/{id}", flightId).retrieve().toBodilessEntity();
-        // Respond with 204 No Content so the frontend does not attempt to parse
-        // an empty body as JSON (a 200 with an empty body made res.json() throw,
-        // which made a successful delete look like a failure and left a stale
-        // dropdown that produced a 404 on the next delete attempt).
+        flightClient.deleteFlight(flightId);
         return ResponseEntity.noContent().build();
     }
 
@@ -453,14 +393,10 @@ public class FrontendIntegrationController {
     }
 
     private List<Map<String, Object>> fetchFlights() {
-        List<Map<String, Object>> flights = flightClient.get()
-                .uri("/api/flights")
-                .retrieve()
-                .body(List.class);
+        List<Map<String, Object>> flights = flightClient.getFlights();
         return flights == null ? List.of() : flights;
     }
 
-    /** Returns a copy of the flight with an {@code airlineName} derived from its flight number. */
     private Map<String, Object> withAirlineName(Map<String, Object> flight) {
         Map<String, Object> out = new HashMap<>(flight);
         out.put("airlineName", airlineNameFor(str(flight.get("flightNumber"))));
@@ -553,5 +489,32 @@ public class FrontendIntegrationController {
         }
         return 820.0;
     }
-}
 
+    @PostMapping("/api/auth/login")
+    public ResponseEntity<byte[]> login(@RequestBody Map<String, Object> credentials) {
+        try {
+            return authClient.login(credentials);
+        } catch (feign.FeignException ex) {
+            org.springframework.http.HttpHeaders responseHeaders = new org.springframework.http.HttpHeaders();
+            if (ex.responseHeaders() != null) {
+                ex.responseHeaders().forEach((k, v) -> responseHeaders.addAll(k, v.stream().toList()));
+            }
+            byte[] responseBody = ex.content() != null ? ex.content() : new byte[0];
+            return ResponseEntity.status(ex.status()).headers(responseHeaders).body(responseBody);
+        }
+    }
+
+    @PostMapping("/api/auth/register")
+    public ResponseEntity<byte[]> register(@RequestBody Map<String, Object> user) {
+        try {
+            return authClient.register(user);
+        } catch (feign.FeignException ex) {
+            org.springframework.http.HttpHeaders responseHeaders = new org.springframework.http.HttpHeaders();
+            if (ex.responseHeaders() != null) {
+                ex.responseHeaders().forEach((k, v) -> responseHeaders.addAll(k, v.stream().toList()));
+            }
+            byte[] responseBody = ex.content() != null ? ex.content() : new byte[0];
+            return ResponseEntity.status(ex.status()).headers(responseHeaders).body(responseBody);
+        }
+    }
+}

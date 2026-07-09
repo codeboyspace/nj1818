@@ -23,31 +23,36 @@ import java.util.List;
  *     <li>GET  /api/admin/overview        - live status + record count per module</li>
  * </ul>
  */
+import com.genc.arfoms.gateway.client.FlightFeignClient;
+import com.genc.arfoms.gateway.client.BookingFeignClient;
+import com.genc.arfoms.gateway.client.CheckinFeignClient;
+import com.genc.arfoms.gateway.client.CrewFeignClient;
+import com.genc.arfoms.gateway.client.LoyaltyFeignClient;
+
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
 
     private final AdminUserService users;
-    private final RestClient flightClient;
-    private final RestClient bookingClient;
-    private final RestClient checkinClient;
-    private final RestClient crewClient;
-    private final RestClient loyaltyClient;
+    private final FlightFeignClient flightClient;
+    private final BookingFeignClient bookingClient;
+    private final CheckinFeignClient checkinClient;
+    private final CrewFeignClient crewClient;
+    private final LoyaltyFeignClient loyaltyClient;
 
     public AdminController(
             AdminUserService users,
-            RestClient.Builder restClientBuilder,
-            @Value("${gateway.flight-service.base-url}") String flightBaseUrl,
-            @Value("${gateway.booking-service.base-url}") String bookingBaseUrl,
-            @Value("${gateway.checkin-service.base-url}") String checkinBaseUrl,
-            @Value("${gateway.crew-service.base-url}") String crewBaseUrl,
-            @Value("${gateway.loyalty-service.base-url}") String loyaltyBaseUrl) {
+            FlightFeignClient flightClient,
+            BookingFeignClient bookingClient,
+            CheckinFeignClient checkinClient,
+            CrewFeignClient crewClient,
+            LoyaltyFeignClient loyaltyClient) {
         this.users = users;
-        this.flightClient = restClientBuilder.clone().baseUrl(flightBaseUrl).build();
-        this.bookingClient = restClientBuilder.clone().baseUrl(bookingBaseUrl).build();
-        this.checkinClient = restClientBuilder.clone().baseUrl(checkinBaseUrl).build();
-        this.crewClient = restClientBuilder.clone().baseUrl(crewBaseUrl).build();
-        this.loyaltyClient = restClientBuilder.clone().baseUrl(loyaltyBaseUrl).build();
+        this.flightClient = flightClient;
+        this.bookingClient = bookingClient;
+        this.checkinClient = checkinClient;
+        this.crewClient = crewClient;
+        this.loyaltyClient = loyaltyClient;
     }
 
     @GetMapping("/accounts")
@@ -64,17 +69,17 @@ public class AdminController {
     @GetMapping("/overview")
     public List<ModuleStatus> overview() {
         List<ModuleStatus> list = new ArrayList<>();
-        list.add(probe("flight", "Flight Service", "flights.html", flightClient, "/api/flights"));
-        list.add(probe("booking", "Booking Service", "manage-booking.html", bookingClient, "/api/bookings"));
-        list.add(probe("checkin", "Check-In Service", "checkin-operations.html", checkinClient, "/api/checkin"));
-        list.add(probe("crew", "Crew Service", "crew_roster_management.html", crewClient, "/api/crew/roster"));
-        list.add(probe("loyalty", "Loyalty Service", "loyalty_admin_portal.html", loyaltyClient, "/api/loyalty"));
+        list.add(probe("flight", "Flight Service", "flights.html", () -> flightClient.getFlights()));
+        list.add(probe("booking", "Booking Service", "manage-booking.html", () -> bookingClient.getBookings()));
+        list.add(probe("checkin", "Check-In Service", "checkin-operations.html", () -> checkinClient.getCheckins()));
+        list.add(probe("crew", "Crew Service", "crew_roster_management.html", () -> crewClient.getCrewRoster()));
+        list.add(probe("loyalty", "Loyalty Service", "loyalty_admin_portal.html", () -> loyaltyClient.getLoyaltyMembers()));
         return list;
     }
 
-    private ModuleStatus probe(String key, String label, String page, RestClient client, String path) {
+    private ModuleStatus probe(String key, String label, String page, java.util.function.Supplier<List<?>> supplier) {
         try {
-            List<?> body = client.get().uri(path).retrieve().body(List.class);
+            List<?> body = supplier.get();
             int count = (body == null) ? 0 : body.size();
             return new ModuleStatus(key, label, page, "UP", count);
         } catch (Exception ex) {

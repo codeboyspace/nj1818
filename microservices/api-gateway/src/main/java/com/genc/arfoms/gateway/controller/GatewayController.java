@@ -88,7 +88,7 @@ public class GatewayController {
     })
     public ResponseEntity<byte[]> proxyRequest(HttpServletRequest request,
                                                @RequestHeader HttpHeaders headers,
-                                               @RequestBody(required = false) byte[] body) {
+                                               @RequestBody(required = false) Object body) {
         String path = request.getRequestURI();
         String baseUrl = resolveBaseUrl(path);
         HttpMethod method = HttpMethod.valueOf(request.getMethod());
