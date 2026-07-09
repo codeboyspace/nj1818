@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="/js/auth.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Booking Confirmation</title>
@@ -594,8 +595,8 @@
     const totalAmount = baseFareTotal + seatCharges + taxes;
 
     // Guard: the flow must come through seat selection
-    if (!draft.fromLocation || !draft.seat) {
-        window.location.href = draft.fromLocation ? 'index.html' : '../booking/index.html';
+    if (!draft || !draft.flightId) {
+        window.location.href = draft && draft.fromLocation ? '/seatinventory/index.html' : '/booking/index.html';
     }
 
     function formatTime(isoTime) {
@@ -731,7 +732,7 @@
             const bookingId = saved.id || saved.bookingId;
 
             sessionStorage.setItem('lastBooking', JSON.stringify(saved));
-            window.location.href = '../booking/booking-confirmation.html?bookingId=' + encodeURIComponent(bookingId);
+            window.location.href = '/booking/booking-confirmation/index.html?bookingId=' + encodeURIComponent(bookingId);
         } catch (err) {
             alert(err.message || 'Sorry, we could not confirm your booking. Please try again.');
             submitBtn.disabled = false;

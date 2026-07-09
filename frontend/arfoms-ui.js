@@ -122,7 +122,7 @@ async function loadMetadata() {
   fillStatusDropdown(FALLBACK_STATUSES);
 
   try {
-    const res = await fetch(window.API + '/metadata', {
+    const res = await apiFetch(window.API + '/metadata', {
         headers: { 'Authorization': window.AUTH_HEADER_VALUE }
     });
     if (!res.ok) throw new Error('metadata status ' + res.status);
@@ -212,7 +212,7 @@ function updateResultCount(shown) {
 
 async function loadFlights() {
   try {
-    const res = await fetch(window.API, {
+    const res = await apiFetch(window.API, {
         headers: { 'Authorization': window.AUTH_HEADER_VALUE }
     });
     if (!res.ok) throw new Error('HTTP status ' + res.status);

@@ -109,7 +109,7 @@
             const container = document.getElementById('queue-container');
             try {
                 // FIXED: Direct lookup tracking queries run matching the specific booking reference vector
-                const response = await fetch(`http://localhost:8210/api/checkin/passenger?bookingId=${bookingId}`);
+                const response = await apiFetch(`http://localhost:8210/api/checkin/passenger?bookingId=${bookingId}`);
                 if (!response.ok) throw new Error('Data transmission drop tracked.');
                 
                 const passenger = await response.json();
@@ -145,7 +145,7 @@
 
         async function boardPassenger(bid) {
             try {
-                const response = await fetch(`http://localhost:8210/api/checkin/board/${bid}`, {
+                const response = await apiFetch(`http://localhost:8210/api/checkin/board/${bid}`, {
                     method: 'PUT'
                 });
                 if (response.ok) {
@@ -169,5 +169,6 @@
             return String(str ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
         }
     </script>
+    <script src="/js/auth.js"></script>
 </body>
 </html>

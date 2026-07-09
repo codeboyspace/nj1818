@@ -1,17 +1,167 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ARFOMS</title>
-    <!-- First page of the app: send users straight to Passenger Search -->
-    <meta http-equiv="refresh" content="0; url=login.html">
-    <link rel="canonical" href="login.html">
+
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <style>
+        :root {
+            --primary-deep: #020617;
+            --primary-mid: #0b1f5e;
+            --primary-vivid: #1d4ed8;
+            --accent: #3D7AE6;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+            background-color: #f1f5f9;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-deep), var(--primary-mid));
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .navbar a { color: white; text-decoration: none; }
+        
+        .dashboard-container {
+            padding: 3rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .welcome-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+        }
+        
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .module-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--primary-deep);
+            display: none; /* hidden by default, shown by JS based on role */
+        }
+        
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        
+        .module-icon {
+            font-size: 2.5rem;
+            color: var(--primary-vivid);
+            margin-bottom: 1rem;
+        }
+        
+        .module-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .module-desc {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+    </style>
 </head>
 <body>
-    <p>Redirecting to <a href="login.html">Login</a>...</p>
+    <script src="/js/auth.js"></script>
     <script>
-        window.location.replace('login.html');
+        // Redirect if not logged in
+        requireAuth();
+    </script>
+    
+    <div class="navbar">
+        <div class="logo fw-bold" style="font-size: 1.2rem;">
+            <i class="fa-solid fa-plane-up me-2"></i> ARFOMS
+        </div>
+        <div class="user-info">
+            <span class="me-3"><i class="fa-solid fa-user me-1"></i> <span id="authUserName">User</span> (<span id="authUserRole">ROLE</span>)</span>
+            <a href="#" id="btnLogout" class="btn btn-sm btn-outline-light"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="welcome-card">
+            <h2>Welcome to ARFOMS Dashboard</h2>
+            <p class="text-muted">Select a module below to begin.</p>
+        </div>
+        
+        <div class="modules-grid">
+            <a href="/flight/index.html" class="module-card" data-allowed="admin,flight dispatcher,flight scheduler">
+                <i class="fa-solid fa-calendar-days module-icon"></i>
+                <div class="module-title">Flight Scheduler</div>
+                <div class="module-desc">Manage flight schedules, routes, and pricing.</div>
+            </a>
+            
+            <a href="/booking/index.html" class="module-card" data-allowed="admin,reservation agent">
+                <i class="fa-solid fa-ticket module-icon"></i>
+                <div class="module-title">Booking & Reservations</div>
+                <div class="module-desc">Search flights, book tickets, and manage passenger details.</div>
+            </a>
+            
+            <a href="/crew/index.html" class="module-card" data-allowed="admin,crew scheduler,crew">
+                <i class="fa-solid fa-users module-icon"></i>
+                <div class="module-title">Crew Management</div>
+                <div class="module-desc">Manage crew rosters, assignments, and duty hours.</div>
+            </a>
+            
+            <a href="/checkin/index.html" class="module-card" data-allowed="admin,ground staff">
+                <i class="fa-solid fa-plane-departure module-icon"></i>
+                <div class="module-title">Check-in & Boarding</div>
+                <div class="module-desc">Passenger check-in, seat assignment, and boarding pass generation.</div>
+            </a>
+            
+            <a href="/loyalty/index.html" class="module-card" data-allowed="admin,loyalty manager,loyalty">
+                <i class="fa-solid fa-award module-icon"></i>
+                <div class="module-title">Loyalty Program</div>
+                <div class="module-desc">Manage frequent flyer miles, redemptions, and member tiers.</div>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const { role } = getAuthState();
+            const normalizedRole = role ? role.toLowerCase().trim() : '';
+            
+            const modules = document.querySelectorAll('.module-card');
+            modules.forEach(mod => {
+                const allowedRoles = mod.getAttribute('data-allowed').split(',');
+                if (normalizedRole === 'admin' || allowedRoles.includes(normalizedRole)) {
+                    mod.style.display = 'block';
+                }
+            });
+        });
     </script>
 </body>
 </html>
+ 

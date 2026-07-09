@@ -198,7 +198,7 @@
     // Load ALL past bookings and render them as cards
     async function loadBookings() {
         try {
-            const res = await fetch(`${API_BASE}/bookings`);
+            const res = await apiFetch(`${API_BASE}/bookings`);
             if (!res.ok) throw new Error("Failed to load bookings");
             const bookings = await res.json();
             renderList(bookings || []);
@@ -330,7 +330,7 @@
             seat: document.getElementById("chosenSeatVal").value
         };
         try {
-            const res = await fetch(`${API_BASE}/${currentBooking.id}/modify`, {
+            const res = await apiFetch(`${API_BASE}/${currentBooking.id}/modify`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -354,7 +354,7 @@
             return;
         }
         try {
-            const res = await fetch(`${API_BASE}/${currentBooking.id}/cancel`, { method: "POST" });
+            const res = await apiFetch(`${API_BASE}/${currentBooking.id}/cancel`, { method: "POST" });
             if (!res.ok) throw new Error("Cancel failed");
             currentBooking = await res.json();
             // Show the in-modal confirmation message instead of an alert
@@ -385,5 +385,6 @@
     });
 </script>
     <script src="../../arfoms-header.js" data-title="Manage Booking"></script>
+    <script src="/js/auth.js"></script>
 </body>
 </html>

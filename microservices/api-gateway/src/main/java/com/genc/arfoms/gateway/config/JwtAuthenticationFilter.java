@@ -40,17 +40,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Claims claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
             String username = claims.getSubject();
             
-            // Assign roles based on username to match existing logic
-            String role = "ROLE_USER";
-            if (username.equals("admin")) role = "ROLE_ADMIN";
-            else if (username.equals("scheduler")) role = "ROLE_FLIGHT_SCHEDULER";
-            else if (username.equals("agent")) role = "ROLE_RESERVATION_AGENT";
-            else if (username.equals("crew")) role = "ROLE_CREW";
-            else if (username.equals("loyalty")) role = "ROLE_LOYALTY_MANAGER";
-            else if (username.equals("groundstaff")) role = "ROLE_GROUND_STAFF";
+            // Extract role from JWT claims
+            String jwtRole = claims.get("role", String.class);
+            if (jwtRole == null) {
+                jwtRole = "user";
+            }
+            
+            // Map the frontend role to Spring Security ROLE_*
+            String mappedRole = "ROLE_USER";
+            switch (jwtRole.toLowerCase().trim()) {
+                case "admin":
+                    mappedRole = "ROLE_ADMIN";
+                    break;
+                case "flight dispatcher":
+                case "flight scheduler":
+                    mappedRole = "ROLE_FLIGHT_SCHEDULER";
+                    break;
+                case "reservation agent":
+                    mappedRole = "ROLE_RESERVATION_AGENT";
+                    break;
+                case "crew scheduler":
+                case "crew":
+                    mappedRole = "ROLE_CREW";
+                    break;
+                case "loyalty manager":
+                case "loyalty":
+                    mappedRole = "ROLE_LOYALTY_MANAGER";
+                    break;
+                case "ground staff":
+                    mappedRole = "ROLE_GROUND_STAFF";
+                    break;
+            }
 
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    username, null, Collections.singletonList(new SimpleGrantedAuthority(role)));
+                    username, null, Collections.singletonList(new SimpleGrantedAuthority(mappedRole)));
             SecurityContextHolder.getContext().setAuthentication(auth);
         } catch (Exception e) {
             SecurityContextHolder.clearContext();

@@ -247,7 +247,7 @@
 
     async function fetchProfileState() {
         try {
-            const res = await fetch(`${API_ROOT}/member/${CURRENT_TRACKING_ID}`);
+            const res = await apiFetch(`${API_ROOT}/member/${CURRENT_TRACKING_ID}`);
             if (!res.ok) throw new Error("Could not find primary test member profile context records.");
             const flyer = await res.json();
 
@@ -296,7 +296,7 @@
 
     async function fetchRegistryLedger() {
         try {
-            const res = await fetch(`${API_ROOT}/members`);
+            const res = await apiFetch(`${API_ROOT}/members`);
             if (!res.ok) throw new Error("Failed to pull administrative registry rows.");
             const membersList = await res.json();
 
@@ -346,7 +346,7 @@
 
     async function processRedeem(cost) {
         try {
-            const res = await fetch(`${API_ROOT}/redeem?memberId=${CURRENT_TRACKING_ID}&miles=${cost}`, { method: 'POST' });
+            const res = await apiFetch(`${API_ROOT}/redeem?memberId=${CURRENT_TRACKING_ID}&miles=${cost}`, { method: 'POST' });
             if (!res.ok) throw new Error("Transaction rejected. Verification failure checking points allocation maps.");
 
             displayToastNotification(`Successfully purchased your travel reward selection (-${cost} Miles)!`, "success");
@@ -365,7 +365,7 @@
         const targetEndpoint = action === 'credit' ? 'credit' : 'redeem';
 
         try {
-            const res = await fetch(`${API_ROOT}/${targetEndpoint}?memberId=${targetId}&miles=${inputMiles}`, { method: 'POST' });
+            const res = await apiFetch(`${API_ROOT}/${targetEndpoint}?memberId=${targetId}&miles=${inputMiles}`, { method: 'POST' });
             if (!res.ok) throw new Error("Override execution rejected. Check logic safety states or target parameter shapes.");
 
             displayToastNotification(`Administrative ${action} operation applied successfully to account ID #${targetId}!`, "success");
@@ -390,5 +390,6 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../arfoms-header.js" data-title="Loyalty Management"></script>
+    <script src="/js/auth.js"></script>
 </body>
 </html>

@@ -132,7 +132,7 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             try {
-                const res = await fetch(`http://localhost:8210/api/checkin/passenger?bookingId=${bookingId}`);
+                const res = await apiFetch(`http://localhost:8210/api/checkin/passenger?bookingId=${bookingId}`);
                 if (res.ok) {
                     const data = await res.json();
                     // FIXED: Dynamic structural text binding mappings derived from backend profiles directly
@@ -151,7 +151,7 @@
             const count = document.getElementById('baggage-count').value;
             const weight = document.getElementById('total-weight').value;
 
-            fetch(`http://localhost:8210/api/checkin/passenger/${bid}?baggageCount=${count}&baggageWeight=${weight}`)
+            apiFetch(`http://localhost:8210/api/checkin/passenger/${bid}?baggageCount=${count}&baggageWeight=${weight}`)
             .then(response => {
                 if(response.ok) {
                     alert(`Passenger check-in successful!`);
@@ -164,5 +164,6 @@
             .catch(err => console.error("Error committing check-in parameters:", err));
         });
     </script>
+    <script src="/js/auth.js"></script>
 </body>
 </html>

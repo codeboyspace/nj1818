@@ -192,7 +192,7 @@
 
     async function fetchProfileState() {
         try {
-            const res = await fetch(`${API_ROOT}/member/${PASSENGER_SESSION_ID}`);
+            const res = await apiFetch(`${API_ROOT}/member/${PASSENGER_SESSION_ID}`);
             if (!res.ok) throw new Error("Unable to sync your flyer profile details right now.");
             const flyer = await res.json();
 
@@ -233,7 +233,7 @@
 
     async function processRedeem(cost) {
         try {
-            const res = await fetch(`${API_ROOT}/redeem?memberId=${PASSENGER_SESSION_ID}&miles=${cost}`, { method: 'POST' });
+            const res = await apiFetch(`${API_ROOT}/redeem?memberId=${PASSENGER_SESSION_ID}&miles=${cost}`, { method: 'POST' });
             if (!res.ok) throw new Error("Voucher issuance transaction rejected due to balance verification check failure.");
 
             displayToastNotification(`Success! Your reward voucher selection (-${cost.toLocaleString()} Miles) has been issued and linked to your digital wallet pass.`, "success");
@@ -256,5 +256,6 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../arfoms-header.js" data-title="Passenger Loyalty Portal"></script>
+    <script src="/js/auth.js"></script>
 </body>
 </html>

@@ -39,7 +39,7 @@ async function handleCrewAssignmentSubmit(event) {
     };
 
     try {
-        const response = await fetch(`${BACKEND_API_BASE_URL}/assign`, {
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/assign`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -73,7 +73,7 @@ async function fetchCrewRosterByName() {
     }
 
     try {
-        const response = await fetch(`${BACKEND_API_BASE_URL}/roster/${encodeURIComponent(searchTarget)}`, {
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/roster/${encodeURIComponent(searchTarget)}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -180,7 +180,7 @@ async function executeCrewSwapTransaction(targetAssignmentId) {
     }
 
     try {
-        const response = await fetch(`${BACKEND_API_BASE_URL}/swap/${targetAssignmentId}`, {
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/swap/${targetAssignmentId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -216,7 +216,7 @@ async function executeLogHoursTransaction(targetAssignmentId) {
     }
 
     try {
-        const response = await fetch(`${BACKEND_API_BASE_URL}/record-duty/${targetAssignmentId}`, {
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/record-duty/${targetAssignmentId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -278,7 +278,7 @@ async function executeCrewSelfServiceLookup() {
     }
 
     try {
-        const response = await fetch(`${BACKEND_API_BASE_URL}/roster/${encodeURIComponent(crewName)}`, {
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/roster/${encodeURIComponent(crewName)}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -342,7 +342,7 @@ async function fetchAndRenderActiveDashboardTable(crewName) {
     dashboardTableBody.innerHTML = '';
 
     try {
-        const response = await fetch(`${BACKEND_API_BASE_URL}/dashboard/${encodeURIComponent(crewName)}`, {
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/dashboard/${encodeURIComponent(crewName)}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',

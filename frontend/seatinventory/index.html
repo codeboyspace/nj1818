@@ -544,11 +544,12 @@
 			let bookedSeats = [];
 
 			// If the user landed here without choosing a flight, send them back
-			if (!draft.fromLocation || !draft.toLocation) {
-				window.location.href = '../booking/index.html';
-			}
-
-			document.addEventListener('DOMContentLoaded', init);
+			if (!draft || !draft.flightId) {
+				alert('No flight found in session. Please start over.');
+				window.location.href = '/booking/index.html';
+			} else {
+			    document.addEventListener('DOMContentLoaded', init);
+            }
 
 			function formatTime(isoTime) {
 				if (!isoTime) return '-';
@@ -591,7 +592,7 @@
 			// (e.g. no seat inventory seeded for this flight) fall back to a generated map
 			// so the seat-selection step always works.
 			function loadSeatData() {
-				fetch('http://localhost:8210/airline/api/seats?flightId=' + encodeURIComponent(flightId))
+				apiFetch('http://localhost:8210/airline/api/seats?flightId=' + encodeURIComponent(flightId))
 					.then((res) => (res.ok ? res.json() : Promise.reject()))
 					.then((data) => {
 						bookedSeats = (data && data.bookedSeatNumbers) || [];
@@ -797,6 +798,7 @@
 			});
 		</script>
 	    <script src="../arfoms-header.js" data-title="Seat Selection"></script>
+    <script src="/js/auth.js"></script>
 </body>
 </html>
 

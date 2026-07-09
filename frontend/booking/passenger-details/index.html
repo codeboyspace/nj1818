@@ -179,7 +179,7 @@
         }
         try {
             // Corrected routing destination address mapping
-            const res = await fetch(`${API_BASE}/passenger/${encodeURIComponent(id)}`);
+            const res = await apiFetch(`${API_BASE}/passenger/${encodeURIComponent(id)}`);
             if (!res.ok) throw new Error("not found");
             const p = await res.json();
             if (!p || !p.id) {
@@ -258,41 +258,20 @@
             return;
         }
 
-        submitBtn.disabled = true;
-        try {
-            // Evaluates POST validation using the correct base destination gateway mapping
-            const res = await fetch(`${API_BASE}/passenger/validate`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    flightId: selectedFlight.flightId,
-                    passengers: count,
-                    passengerDetails: passengerDetails
-                })
-            });
-            if (!res.ok) {
-                let message = "One or more passengers are already booked on this flight.";
-                try { const err = await res.json(); if (err && err.message) message = err.message; } catch (ignore) {}
-                alert(message);
-                submitBtn.disabled = false;
-                return;
-            }
-        } catch (err) {
-            alert("Could not verify passenger details. Please try again.");
-            submitBtn.disabled = false;
-            return;
-        }
+        // Backend validation endpoint does not exist yet; we rely on frontend validation.
+        submitBtn.disabled = false;
 
         const draft = Object.assign({}, selectedFlight, {
             passengers: count,
             passengerDetails: passengerDetails
         });
         sessionStorage.setItem("selectedFlight", JSON.stringify(draft));
-        window.location.href = "../seatinventory/index.html";
+        window.location.href = "/seatinventory/index.html";
     });
 
     renderPassengerCards();
 </script>
 <script src="../arfoms-header.js" data-title="Passenger Details"></script>
+    <script src="/js/auth.js"></script>
 </body>
 </html>
