@@ -39,11 +39,11 @@ public class CheckInService {
      * hardcoded here - everything comes from the booking/flight databases.
      */
     public BookingLookupResult lookupBooking(Long bookingId) {
-        BookingView booking = bookingClient.getBooking(bookingId);
+        BookingView booking = getBookingSafe(bookingId);
         if (booking == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found");
         }
-        FlightView flight = flightClient.getFlight(booking.flightId());
+        FlightView flight = getFlightSafe(booking.flightId());
         Optional<CheckIn> existing = checkInRepository.findFirstByBookingId(bookingId);
         return new BookingLookupResult(
                 booking,
@@ -53,7 +53,7 @@ public class CheckInService {
     }
 
     public CheckIn checkInPassenger(CheckIn checkIn) {
-        BookingView booking = bookingClient.getBooking(checkIn.getBookingId());
+        BookingView booking = getBookingSafe(checkIn.getBookingId());
         if (booking == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Booking does not exist");
         }
@@ -90,11 +90,11 @@ public class CheckInService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Cannot issue a boarding pass for an offloaded passenger");
         }
-        BookingView booking = bookingClient.getBooking(checkIn.getBookingId());
+        BookingView booking = getBookingSafe(checkIn.getBookingId());
         if (booking == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Booking no longer exists");
         }
-        FlightView flight = flightClient.getFlight(booking.flightId());
+        FlightView flight = getFlightSafe(booking.flightId());
         return new BoardingPassView(
                 checkIn.getCheckInId(),
                 booking.bookingId(),
@@ -136,8 +136,8 @@ public class CheckInService {
     }
 
     private CheckInDetailsView toDetails(CheckIn checkIn) {
-        BookingView booking = bookingClient.getBooking(checkIn.getBookingId());
-        FlightView flight = booking != null ? flightClient.getFlight(booking.flightId()) : null;
+        BookingView booking = getBookingSafe(checkIn.getBookingId());
+        FlightView flight = booking != null ? getFlightSafe(booking.flightId()) : null;
         return new CheckInDetailsView(
                 checkIn.getCheckInId(),
                 checkIn.getBookingId(),
@@ -152,6 +152,23 @@ public class CheckInService {
                 checkIn.getBaggageCount(),
                 checkIn.getBaggageWeight(),
                 checkIn.getCheckInTime());
+    }
+    private BookingView getBookingSafe(Long bookingId) {
+        if (bookingId == null) return null;
+        try {
+            return bookingClient.getBooking(bookingId);
+        } catch (feign.FeignException.NotFound e) {
+            return null;
+        }
+    }
+
+    private FlightView getFlightSafe(Long flightId) {
+        if (flightId == null) return null;
+        try {
+            return flightClient.getFlight(flightId);
+        } catch (feign.FeignException.NotFound e) {
+            return null;
+        }
     }
 }
 

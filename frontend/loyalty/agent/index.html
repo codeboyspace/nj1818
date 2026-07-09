@@ -192,7 +192,7 @@
 
     async function fetchProfileState() {
         try {
-            const res = await apiFetch(`${API_ROOT}/member/${PASSENGER_SESSION_ID}`);
+            const res = await apiFetch(`${API_ROOT}/${PASSENGER_SESSION_ID}`);
             if (!res.ok) throw new Error("Unable to sync your flyer profile details right now.");
             const flyer = await res.json();
 
@@ -233,7 +233,11 @@
 
     async function processRedeem(cost) {
         try {
-            const res = await apiFetch(`${API_ROOT}/redeem?memberId=${PASSENGER_SESSION_ID}&miles=${cost}`, { method: 'POST' });
+            const res = await apiFetch(`${API_ROOT}/${PASSENGER_SESSION_ID}/redeem`, { 
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ miles: parseInt(cost) })
+            });
             if (!res.ok) throw new Error("Voucher issuance transaction rejected due to balance verification check failure.");
 
             displayToastNotification(`Success! Your reward voucher selection (-${cost.toLocaleString()} Miles) has been issued and linked to your digital wallet pass.`, "success");

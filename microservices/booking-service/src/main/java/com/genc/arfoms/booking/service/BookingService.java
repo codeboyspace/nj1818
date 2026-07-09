@@ -23,7 +23,9 @@ public class BookingService {
     }
 
     public Booking createBooking(Booking booking) {
-        if (!flightClient.flightExists(booking.getFlightId())) {
+        try {
+            flightClient.verifyFlightExists(booking.getFlightId());
+        } catch (feign.FeignException.NotFound e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Flight does not exist");
         }
         booking.setPnr(generatePnr());

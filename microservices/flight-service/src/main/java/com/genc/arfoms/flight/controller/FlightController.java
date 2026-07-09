@@ -34,6 +34,11 @@ public class FlightController {
         return flightService.addFlight(flight);
     }
 
+    @PostMapping("/search")
+    public List<Flight> searchFlights(@RequestBody FlightSearchRequest request) {
+        return flightService.searchFlights(request.fromLocation(), request.toLocation(), request.departureDate());
+    }
+
     @PatchMapping("/{flightId}/schedule")
     public Flight updateSchedule(@PathVariable Long flightId, @RequestBody UpdateScheduleRequest request) {
         return flightService.updateSchedule(flightId, request.departureTime(), request.arrivalTime());
@@ -83,6 +88,9 @@ public class FlightController {
     }
 
     public record UpdateStatusRequest(FlightStatus flightStatus) {
+    }
+
+    public record FlightSearchRequest(String flightType, String fromLocation, String toLocation, java.time.LocalDate departureDate, Integer passengers) {
     }
 }
 

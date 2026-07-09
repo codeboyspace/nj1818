@@ -73,6 +73,16 @@ public class FlightService {
         return flightRepository.findAll();
     }
 
+    public List<Flight> searchFlights(String origin, String destination, java.time.LocalDate departureDate) {
+        List<Flight> flights = flightRepository.findByOriginAndDestination(origin, destination);
+        if (departureDate != null) {
+            return flights.stream()
+                    .filter(f -> f.getDepartureTime() != null && f.getDepartureTime().toLocalDate().equals(departureDate))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        return flights;
+    }
+
     public Flight getByFlightNumber(String flightNumber) {
         return flightRepository.findByFlightNumber(flightNumber)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Flight not found"));

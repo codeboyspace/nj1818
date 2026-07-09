@@ -37,7 +37,7 @@
 <body class="font-sans min-h-screen flex flex-col">
     <header class="app-header text-white shadow-md">
         <div class="w-full px-6 py-4 flex items-center justify-between">
-            <a href="search.html" class="flex items-center space-x-3">
+            <a href="/checkin/search/index.html" class="flex items-center space-x-3">
                 <div class="logo-mark flex h-11 w-11 items-center justify-center rounded-xl shadow-lg shadow-blue-950/30 ring-1 ring-white/10">
                     <i class="fa-solid fa-plane-up text-xl text-white"></i>
                 </div>
@@ -53,10 +53,10 @@
         <nav class="app-sidebar border-b shadow-sm md:w-72 md:min-h-[calc(100vh-73px)] md:border-b-0 md:border-r md:sticky md:top-0 md:self-start">
             <div class="p-4 space-y-2">
                 <p class="px-4 pb-2 text-xs font-bold uppercase tracking-wider text-blue-200/80">Navigation</p>
-                <a href="search.html" class="nav-link"><i class="fa-solid fa-magnifying-glass mr-2"></i>1. Passenger Search</a>
-                <a href="index.html" class="nav-link"><i class="fa-solid fa-suitcase mr-2"></i>2. Check-In & Baggage</a>
-                <a href="boarding.html" class="nav-link active"><i class="fa-solid fa-id-card-clip mr-2"></i>3. Gate Boarding</a>
-                <a href="manifest.html" class="nav-link"><i class="fa-solid fa-list-check mr-2"></i>4. Manifest & Offload</a>
+                <a href="/checkin/search/index.html" class="nav-link"><i class="fa-solid fa-magnifying-glass mr-2"></i>1. Passenger Search</a>
+                <a href="/checkin/index.html" class="nav-link"><i class="fa-solid fa-suitcase mr-2"></i>2. Check-In & Baggage</a>
+                <a href="/checkin/boarding/index.html" class="nav-link active"><i class="fa-solid fa-id-card-clip mr-2"></i>3. Gate Boarding</a>
+                <a href="/checkin/manifest.html" class="nav-link"><i class="fa-solid fa-list-check mr-2"></i>4. Manifest & Offload</a>
             </div>
         </nav>
 
@@ -108,14 +108,27 @@
         async function fetchActivePassengerQueue() {
             const container = document.getElementById('queue-container');
             try {
-                // FIXED: Direct lookup tracking queries run matching the specific booking reference vector
-                const response = await apiFetch(`http://localhost:8210/api/checkin/passenger?bookingId=${bookingId}`);
+                // Fetch the booking lookup result first
+                const response = await apiFetch(`http://localhost:8210/api/checkin/booking/${bookingId}`);
                 if (!response.ok) throw new Error('Data transmission drop tracked.');
                 
-                const passenger = await response.json();
+                const lookup = await response.json();
+                const booking = lookup.booking || {};
+                const flight = lookup.flight || {};
                 
-                const statusStr = String(passenger.status || '').toUpperCase();
-                const isBoarded = statusStr === 'BOARDED';
+                let isBoarded = false;
+                let checkInId = lookup.existingCheckInId;
+                
+                if (lookup.alreadyCheckedIn && checkInId) {
+                    const checkInRes = await apiFetch(`http://localhost:8210/api/checkin/${checkInId}`);
+                    if (checkInRes.ok) {
+                        const checkInData = await checkInRes.json();
+                        isBoarded = (checkInData.checkInStatus === 'BOARDED');
+                    }
+                } else {
+                    container.innerHTML = `<div class="p-6 text-center text-amber-500 text-sm">Passenger not checked in yet.</div>`;
+                    return;
+                }
 
                 updateMetrics(1, isBoarded ? 1 : 0);
 
@@ -124,15 +137,15 @@
                         <div class="flex items-center space-x-4">
                             <span class="w-8 h-8 rounded-full ${isBoarded ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'} flex items-center justify-center font-bold text-xs">001</span>
                             <div>
-                                <h3 class="font-semibold text-slate-800">${escapeHtml(passenger.passengerName || 'Active Test Passenger')}</h3>
-                                <p class="text-xs text-slate-500 font-mono">Seat ${escapeHtml(passenger.seat || 'N/A')} | Flight ${escapeHtml(passenger.flightNumber || 'N/A')} (${escapeHtml(passenger.travelClass || 'DOMESTIC')})</p>
+                                <h3 class="font-semibold text-slate-800">${escapeHtml(booking.passengerName || 'Active Test Passenger')}</h3>
+                                <p class="text-xs text-slate-500 font-mono">Seat ${escapeHtml(booking.seatNumber || 'N/A')} | Flight ${escapeHtml(flight.flightNumber || 'N/A')}</p>
                             </div>
                         </div>
                         <div class="flex items-center space-x-6">
                             <span class="text-xs text-slate-400">${isBoarded ? 'Scanned successfully' : 'Waiting at gate'}</span>
                             ${isBoarded 
                                 ? `<span class="px-2.5 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full uppercase tracking-wider"><i class="fa-solid fa-plane-arrival mr-1"></i>Boarded</span>`
-                                : `<button onclick="boardPassenger(${bookingId})" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"><i class="fa-solid fa-ticket mr-1"></i>Board Passenger</button>`
+                                : `<button onclick="boardPassenger(${checkInId})" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"><i class="fa-solid fa-ticket mr-1"></i>Board Passenger</button>`
                             }
                         </div>
                     </div>
@@ -143,10 +156,10 @@
             }
         }
 
-        async function boardPassenger(bid) {
+        async function boardPassenger(checkInId) {
             try {
-                const response = await apiFetch(`http://localhost:8210/api/checkin/board/${bid}`, {
-                    method: 'PUT'
+                const response = await apiFetch(`http://localhost:8210/api/checkin/${checkInId}/board`, {
+                    method: 'PATCH'
                 });
                 if (response.ok) {
                     alert('Passenger successfully checked into BOARDED tracking profile status!');

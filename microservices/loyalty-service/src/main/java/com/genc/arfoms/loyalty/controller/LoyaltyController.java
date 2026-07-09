@@ -110,7 +110,15 @@ public class LoyaltyController {
     @GetMapping("/offers/by-flight")
     public LoyaltyOffersResponse getOffersForFlight(@RequestParam Long flightId,
                                                     @RequestParam(required = false) Long memberId) {
-        double distanceMiles = flightDistanceClient.distanceForFlight(flightId);
+        double distanceMiles = 0;
+        try {
+            distanceMiles = flightDistanceClient.distanceForFlight(flightId).distanceMiles();
+        } catch (feign.FeignException e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_GATEWAY, 
+                "Flight service returned no distance or failed for flight " + flightId
+            );
+        }
         return loyaltyService.generateOffers(memberId, distanceMiles);
     }
 

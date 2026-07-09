@@ -2,7 +2,7 @@
 
 let allFlights = [];
 let sortState = { key: null, dir: 1 };
-const NUMERIC_KEYS = ['economyFare', 'premiumFare', 'firstFare'];
+const NUMERIC_KEYS = ['economyFare', 'businessFare', 'firstFare'];
 
 const FALLBACK_AIRPORTS = [
   { code: 'DEL', city: 'Delhi' }, { code: 'BOM', city: 'Mumbai' },
@@ -73,7 +73,7 @@ window.renderTable = function() {
         <td>${f.departureTime || '-'}</td>
         <td>${f.arrivalTime || '-'}</td>
         <td>${money(f.economyFare)}</td>
-        <td>${money(f.premiumFare)}</td>
+        <td>${money(f.businessFare)}</td>
         <td>${money(f.firstFare)}</td>
         <td>${statusBadge(f.flightStatus)}</td>
       </tr>`).join('');
@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         departureTime: data.departureTime,
         arrivalTime: data.arrivalTime,
         economyFare: parseFloat(data.economyFare),
-        premiumFare: parseFloat(data.premiumFare),
+        businessFare: parseFloat(data.premiumFare),
         firstFare: parseFloat(data.firstFare),
         seatCount: data.seatCount ? parseInt(data.seatCount, 10) : null,
         seatRows: data.seatRows ? parseInt(data.seatRows, 10) : null,
@@ -391,7 +391,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         flightStatus: data.flightStatus || null
       };
       try {
-        await window.sendRequest(window.API + '/' + encodeURIComponent(data.flightNumber) + '/schedule', 'PUT', payload);
+        const flightNum = data.flightNumber;
+        const flightObj = allFlights.find(f => f.flightNumber === flightNum);
+        const flightId = flightObj ? flightObj.flightId : flightNum;
+        await window.sendRequest(window.API + '/' + encodeURIComponent(flightId) + '/schedule', 'PATCH', payload);
         showAlert('Schedule updated for ' + data.flightNumber + '.', 'success');
         e.target.reset();
         await loadFlights();
@@ -406,11 +409,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = Object.fromEntries(new FormData(e.target).entries());
       const payload = {
         economyFare: parseFloat(data.economyFare),
-        premiumFare: parseFloat(data.premiumFare),
+        businessFare: parseFloat(data.premiumFare),
         firstFare: parseFloat(data.firstFare)
       };
       try {
-        await window.sendRequest(window.API + '/' + encodeURIComponent(data.flightNumber) + '/fares', 'PUT', payload);
+        const flightNum = data.flightNumber;
+        const flightObj = allFlights.find(f => f.flightNumber === flightNum);
+        const flightId = flightObj ? flightObj.flightId : flightNum;
+        await window.sendRequest(window.API + '/' + encodeURIComponent(flightId) + '/fare-class', 'PATCH', payload);
         showAlert('Fares updated for ' + data.flightNumber + '.', 'success');
         e.target.reset();
         await loadFlights();
@@ -425,7 +431,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = Object.fromEntries(new FormData(e.target).entries());
       if (!confirm('Confirm complete removal of ' + data.flightNumber + '?')) return;
       try {
-        await window.sendRequest(window.API + '/' + encodeURIComponent(data.flightNumber), 'DELETE');
+        const flightNum = data.flightNumber;
+        const flightObj = allFlights.find(f => f.flightNumber === flightNum);
+        const flightId = flightObj ? flightObj.flightId : flightNum;
+        await window.sendRequest(window.API + '/' + encodeURIComponent(flightId), 'DELETE');
         showAlert('Flight ' + data.flightNumber + ' removed.', 'success');
         e.target.reset();
         await loadFlights();

@@ -714,22 +714,26 @@
         try {
             submitBtn.textContent = 'Processing Payment...';
 
+            const firstPassenger = (draft.passengerDetails && draft.passengerDetails[0]) || {};
             const payload = {
-                flightId: draft.flightId,
-                flightType: draft.flightType,
-                fromLocation: draft.fromLocation,
-                toLocation: draft.toLocation,
-                departureDate: draft.departureDate,
-                flyDate: draft.departureDate,
-                passengers: passengerCount,
-                seat: Array.isArray(draft.seats) ? draft.seats.join(',') : (draft.seat || ''),
-                airline: draft.airline || draft.flightNumber,
-                fare: totalAmount,
-                passengerDetails: Array.isArray(draft.passengerDetails) ? draft.passengerDetails : []
+                flightId: parseInt(draft.flightId, 10),
+                passengerName: firstPassenger.fullName || 'Unknown',
+                seatNumber: Array.isArray(draft.seats) ? draft.seats[0] : (draft.seat || ''),
+                fareAmount: totalAmount
             };
 
-            const saved = await window.sendRequest(BOOKING_API_BASE + '/passenger/confirm', 'POST', payload);
-            const bookingId = saved.id || saved.bookingId;
+            const response = await window.apiFetch('http://localhost:8210/api/bookings', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (!response || !response.ok) {
+                const errMsg = response ? await response.text() : 'Network error';
+                throw new Error('Booking failed: ' + errMsg);
+            }
+
+            const saved = await response.json();
+            const bookingId = saved.bookingId || saved.id;
 
             sessionStorage.setItem('lastBooking', JSON.stringify(saved));
             window.location.href = '/booking/booking-confirmation/index.html?bookingId=' + encodeURIComponent(bookingId);

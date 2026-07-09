@@ -1,7 +1,7 @@
 // arfoms-header.js
 
 // 1. Shared Global Constants
-window.API = 'http://localhost:8210/api/v1/flights';
+window.API = 'http://localhost:8210/api/flights';
 window.AUTH_HEADER_VALUE = sessionStorage.getItem('authHeader') || ('Basic ' + btoa('flightscheduler:flightscheduler'));
 
 // 2. Shared Network Communication Engine attached to the global window scope

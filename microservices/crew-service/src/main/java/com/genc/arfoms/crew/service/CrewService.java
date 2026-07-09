@@ -35,7 +35,9 @@ public class CrewService {
         Long flightId = assignment.getFlightId();
 
         // 1. Cross-module guard: verify the flight exists in flight-service before roster manipulation.
-        if (!flightClient.flightExists(flightId)) {
+        try {
+            flightClient.verifyFlightExists(flightId);
+        } catch (feign.FeignException.NotFound e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Integration Guard: Flight ID " + flightId + " does not exist in the system.");
         }
@@ -92,7 +94,12 @@ public class CrewService {
 
         try {
             // Derive real operational duration from the flight's departure/arrival window.
-            FlightClient.FlightView flight = flightClient.getFlight(assignment.getFlightId());
+            FlightClient.FlightView flight = null;
+            try {
+                flight = flightClient.getFlight(assignment.getFlightId());
+            } catch (feign.FeignException.NotFound e) {
+                // flight stays null
+            }
             if (flight != null && flight.departureTime() != null && flight.arrivalTime() != null) {
                 long minutes = Duration.between(flight.departureTime(), flight.arrivalTime()).toMinutes();
                 hours = BigDecimal.valueOf(minutes / 60.0).setScale(1, RoundingMode.HALF_UP);

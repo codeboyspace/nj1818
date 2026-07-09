@@ -85,8 +85,9 @@ async function fetchCrewRosterByName() {
             throw new Error(`Server returned structural status response: ${response.status}`);
         }
 
-        const separatedRoster = await response.json();
-        renderRosterGridTable(separatedRoster);
+        const rawList = await response.json();
+        const totalRecordsList = Array.isArray(rawList) ? rawList : [];
+        renderRosterGridTable(totalRecordsList);
     } catch (error) {
         console.error('Data Processing Exception:', error);
         alert('Database Query Refusal: Error extracting historical logs for specified user data.');
@@ -96,16 +97,12 @@ async function fetchCrewRosterByName() {
 /**
  * Dynamic template builder: Renders enriched scheduler rows with transactional interactive nodes
  */
-function renderRosterGridTable(separatedRoster) {
+function renderRosterGridTable(totalRecordsList) {
     const tableBody = document.querySelector('#crewRosterTable tbody');
     const metricsPanel = document.getElementById('dutyMetricsPanel');
     
     if (!tableBody) return;
     tableBody.innerHTML = '';
-
-    const upcomingRecords = separatedRoster.upcoming || [];
-    const doneRecords = separatedRoster.done || [];
-    const totalRecordsList = [...upcomingRecords, ...doneRecords];
 
     if (totalRecordsList.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="10" class="no-records">No operational ledger entities registered to match query.</td></tr>';
@@ -119,39 +116,34 @@ function renderRosterGridTable(separatedRoster) {
     totalRecordsList.forEach(record => {
         calculatedCumulativeHours += (record.dutyHours || 0);
 
-        let actionControlTemplate = '';
+        let swapControlTemplate = '';
+        let hoursControlTemplate = '';
+        
         if (record.assignmentStatus !== 'SWAPPED' && record.assignmentStatus !== 'COMPLETED') {
-            actionControlTemplate = `
-                <div class="operational-control-group" style="display:flex; flex-direction:column; gap:4px;">
-                    <div style="display:flex; gap:2px;">
-                        <input type="text" id="targetReplacementName-${record.assignmentId}" placeholder="New Name" class="inline-input" style="width:90px; font-size:11px;">
-                        <button type="button" class="btn btn-action" onclick="executeCrewSwapTransaction(${record.assignmentId})" style="padding:2px 4px; font-size:11px;">Swap</button>
-                    </div>
-                    <div style="display:flex; gap:2px; border-top:1px dashed #ccc; padding-top:4px;">
-                        <input type="number" step="0.1" id="logDutyHours-${record.assignmentId}" placeholder="Hours" class="inline-input" style="width:90px; font-size:11px;">
-                        <button type="button" class="btn btn-success" onclick="executeLogHoursTransaction(${record.assignmentId})" style="padding:2px 4px; font-size:11px; background-color:#10b981; color:white; border:none; border-radius:3px;">Complete Flight</button>
-                    </div>
+            swapControlTemplate = `
+                <div style="display:flex; gap:2px;">
+                    <input type="text" id="targetReplacementName-${record.assignmentId}" placeholder="New Name" class="inline-input" style="width:90px; font-size:11px;">
+                    <button type="button" class="btn btn-action" onclick="executeCrewSwapTransaction(${record.assignmentId})" style="padding:2px 4px; font-size:11px;">Swap</button>
+                </div>`;
+            hoursControlTemplate = `
+                <div style="display:flex; gap:2px;">
+                    <input type="number" step="0.1" id="logDutyHours-${record.assignmentId}" placeholder="Hours" class="inline-input" style="width:90px; font-size:11px;">
+                    <button type="button" class="btn btn-success" onclick="executeLogHoursTransaction(${record.assignmentId})" style="padding:2px 4px; font-size:11px; background-color:#10b981; color:white; border:none; border-radius:3px;">Complete</button>
                 </div>`;
         } else {
-            actionControlTemplate = '<span class="terminal-label" style="color:#6b7280; font-style:italic;">Archival View Only</span>';
+            swapControlTemplate = '<span class="terminal-label" style="color:#6b7280; font-style:italic;">Archival</span>';
+            hoursControlTemplate = '<span class="terminal-label" style="color:#6b7280; font-style:italic;">Archival</span>';
         }
-
-        const flightNum = record.flightNumber || 'N/A';
-        const routing = (record.origin && record.destination) ? `${record.origin} → ${record.destination}` : 'N/A';
-        const departure = record.departureTime || 'N/A';
-        const arrival = record.arrivalTime || 'N/A';
 
         const HTMLGridRow = `
             <tr>
                 <td><strong>#${record.assignmentId}</strong></td>
-                <td>FL-${record.flightId || 'N/A'} (${flightNum})</td>
-                <td>${routing}</td>
-                <td><small>${departure}</small></td>
-                <td><small>${arrival}</small></td>
+                <td>FL-${record.flightId || 'N/A'}</td>
                 <td><span class="role-badge">${record.role}</span></td>
                 <td>${record.dutyHours ? record.dutyHours.toFixed(1) : '0.0'} hrs</td>
                 <td><span class="status-indicator status-${record.assignmentStatus.toLowerCase()}">${record.assignmentStatus}</span></td>
-                <td>${actionControlTemplate}</td>
+                <td>${swapControlTemplate}</td>
+                <td>${hoursControlTemplate}</td>
             </tr>`;
             
         tableBody.insertAdjacentHTML('beforeend', HTMLGridRow);
@@ -180,14 +172,14 @@ async function executeCrewSwapTransaction(targetAssignmentId) {
     }
 
     try {
-        const response = await apiFetch(`${BACKEND_API_BASE_URL}/swap/${targetAssignmentId}`, {
-            method: 'PUT',
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/${targetAssignmentId}/swap`, {
+            method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 'Authorization': AUTH_HEADER_VALUE
             },
-            body: JSON.stringify({ newCrewMemberName: verifiedReplacementName })
+            body: JSON.stringify({ crewMemberName: verifiedReplacementName })
         });
 
         if (response.ok) {
@@ -216,8 +208,8 @@ async function executeLogHoursTransaction(targetAssignmentId) {
     }
 
     try {
-        const response = await apiFetch(`${BACKEND_API_BASE_URL}/record-duty/${targetAssignmentId}`, {
-            method: 'PUT',
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/${targetAssignmentId}/duty-hours`, {
+            method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -287,15 +279,12 @@ async function executeCrewSelfServiceLookup() {
         });
 
         if (!response.ok) throw new Error('Data extract refusal.');
-        const dataMap = await response.json();
+        const rawList = await response.json();
+        const combinedList = Array.isArray(rawList) ? rawList : [];
         
         const container = document.getElementById('crewSelfServiceContainer');
         if (!container) return;
         container.innerHTML = '';
-
-        const upcomingList = dataMap.upcoming || [];
-        const doneList = dataMap.done || [];
-        const combinedList = [...upcomingList, ...doneList];
 
         if (combinedList.length === 0) {
             container.innerHTML = `<p class="no-records">No active operational flight patterns registered for: "${crewName}"</p>`;
@@ -342,7 +331,7 @@ async function fetchAndRenderActiveDashboardTable(crewName) {
     dashboardTableBody.innerHTML = '';
 
     try {
-        const response = await apiFetch(`${BACKEND_API_BASE_URL}/dashboard/${encodeURIComponent(crewName)}`, {
+        const response = await apiFetch(`${BACKEND_API_BASE_URL}/roster/${encodeURIComponent(crewName)}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -351,7 +340,9 @@ async function fetchAndRenderActiveDashboardTable(crewName) {
         });
 
         if (!response.ok) throw new Error('Dashboard endpoint failure');
-        const activeAssignments = await response.json();
+        const rawList = await response.json();
+        const allAssignments = Array.isArray(rawList) ? rawList : [];
+        const activeAssignments = allAssignments.filter(a => a.assignmentStatus !== 'COMPLETED' && a.assignmentStatus !== 'SWAPPED');
 
         if (!activeAssignments || activeAssignments.length === 0) {
             dashboardTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888; font-style: italic; padding: 20px;">No upcoming scheduled flights are on your radar right now.</td></tr>';

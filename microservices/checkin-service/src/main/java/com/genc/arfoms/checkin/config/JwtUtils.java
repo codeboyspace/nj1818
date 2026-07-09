@@ -1,4 +1,4 @@
-package com.genc.arfoms.auth;
+package com.genc.arfoms.checkin.config;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -41,11 +41,6 @@ public class JwtUtils {
     public boolean validateToken(String token, String username) {
         final String extractedUsername = getUsernameFromToken(token);
         return (extractedUsername.equals(username));
-    }
-
-    public void validateToken(final String token) {
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes());
-        Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
     }
 
     private Claims getAllClaimsFromToken(String token) {
