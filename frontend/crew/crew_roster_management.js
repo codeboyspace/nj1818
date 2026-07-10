@@ -293,9 +293,24 @@ async function executeCrewSelfServiceLookup() {
             let cumulativeHours = 0;
             combinedList.forEach(rec => cumulativeHours += (rec.dutyHours || 0));
 
-            const fNo = primaryTrack.flightNumber || 'N/A';
-            const routeStr = (primaryTrack.origin && primaryTrack.destination) ? `${primaryTrack.origin} to ${primaryTrack.destination}` : 'N/A';
-            const timingStr = (primaryTrack.departureTime && primaryTrack.arrivalTime) ? `${primaryTrack.departureTime} - ${primaryTrack.arrivalTime}` : 'N/A';
+            // Dynamically fetch Flight Details from Flight Service via Gateway
+            let flightData = {};
+            if (primaryTrack.flightId) {
+                try {
+                    const flightRes = await apiFetch(`http://localhost:8210/api/flights/${primaryTrack.flightId}`, {
+                        headers: { 'Authorization': AUTH_HEADER_VALUE }
+                    });
+                    if (flightRes.ok) {
+                        flightData = await flightRes.json();
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch flight details for crew mapping:', e);
+                }
+            }
+
+            const fNo = flightData.flightNumber || 'N/A';
+            const routeStr = (flightData.origin && flightData.destination) ? `${flightData.origin} to ${flightData.destination}` : 'N/A';
+            const timingStr = (flightData.departureTime && flightData.arrivalTime) ? `${flightData.departureTime} - ${flightData.arrivalTime}` : 'N/A';
 
             container.innerHTML = `
                 <div class="crew-display-card animate-fade-in" style="background:#fff; padding:20px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:20px;">

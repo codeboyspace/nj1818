@@ -66,7 +66,7 @@ public class LoyaltyService {
      * Self-contained: distance is supplied by the caller, so loyalty stays decoupled
      * from the Booking/Flight modules. Inactive accounts cannot earn miles.
      */
-    public LoyaltyFlightCreditResult creditMilesForCompletedFlight(Long memberId, Long bookingId, double distanceMiles) {
+    public LoyaltyFlightCreditResult creditMilesForCompletedFlight(Long memberId, Long bookingId, String passengerName, double distanceMiles) {
         FrequentFlyer member = getMember(memberId);
         if (member.getMemberStatus() == MemberStatus.INACTIVE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot credit miles to an inactive account");
@@ -77,7 +77,7 @@ public class LoyaltyService {
         applyTier(member);
         FrequentFlyer saved = repository.save(member);
         return new LoyaltyFlightCreditResult(
-                saved.getMemberId(), bookingId, milesToAward, saved.getMilesBalance(), saved.getMembershipTier());
+                saved.getMemberId(), bookingId, passengerName, milesToAward, saved.getMilesBalance(), saved.getMembershipTier());
     }
 
     /**

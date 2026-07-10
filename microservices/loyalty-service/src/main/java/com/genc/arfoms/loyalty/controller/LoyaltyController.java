@@ -87,7 +87,7 @@ public class LoyaltyController {
     @PostMapping("/credit-flight")
     public LoyaltyFlightCreditResult creditForCompletedFlight(@RequestBody LoyaltyFlightCreditRequest request) {
         return loyaltyService.creditMilesForCompletedFlight(
-                request.memberId(), request.bookingId(), request.distanceMiles());
+                request.memberId(), request.bookingId(), request.passengerName(), request.distanceMiles());
     }
 
     // ------------------------------------------------------------------

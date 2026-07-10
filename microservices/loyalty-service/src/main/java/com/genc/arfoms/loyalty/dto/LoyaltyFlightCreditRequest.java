@@ -5,6 +5,6 @@ package com.genc.arfoms.loyalty.dto;
  * Self-contained: the distance is supplied by the caller so the loyalty
  * service stays decoupled from the Booking/Flight modules.
  */
-public record LoyaltyFlightCreditRequest(Long memberId, Long bookingId, double distanceMiles) {
+public record LoyaltyFlightCreditRequest(Long memberId, Long bookingId, String passengerName, double distanceMiles) {
 }
 

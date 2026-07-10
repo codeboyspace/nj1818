@@ -243,9 +243,10 @@
 
 <script>
     const API_ROOT = "http://localhost:8210/api/loyalty";
-    let CURRENT_TRACKING_ID = 1;
+    let CURRENT_TRACKING_ID = null;
 
     async function fetchProfileState() {
+        if (!CURRENT_TRACKING_ID) return;
         try {
             const res = await apiFetch(`${API_ROOT}/${CURRENT_TRACKING_ID}`);
             if (!res.ok) throw new Error("Could not find primary test member profile context records.");
@@ -287,8 +288,6 @@
             document.getElementById("btnRedeem10k").disabled = milesBalance < 10000;
             document.getElementById("btnRedeem5k").disabled = milesBalance < 5000;
 
-            fetchRegistryLedger();
-
         } catch (err) {
             displayToastNotification(err.message, "danger");
         }
@@ -306,6 +305,11 @@
                 document.getElementById("tblRegistryBody").innerHTML = `
                     <tr><td colspan="5" class="text-center py-4">No active member state records found.</td></tr>`;
                 return;
+            }
+
+            if (!CURRENT_TRACKING_ID) {
+                CURRENT_TRACKING_ID = membersList[0].memberId || membersList[0].member_id;
+                document.getElementById("txtAdminId").value = CURRENT_TRACKING_ID;
             }
 
             membersList.forEach(flyer => {
@@ -394,7 +398,12 @@
     }
 
     // Modern loading lifecycle hook prevents table population crashes
-    document.addEventListener("DOMContentLoaded", fetchProfileState);
+    document.addEventListener("DOMContentLoaded", async () => {
+        await fetchRegistryLedger();
+        if (CURRENT_TRACKING_ID) {
+            await fetchProfileState();
+        }
+    });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../arfoms-header.js" data-title="Loyalty Management"></script>

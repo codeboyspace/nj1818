@@ -8,6 +8,7 @@ import com.genc.arfoms.loyalty.model.MembershipTier;
 public record LoyaltyFlightCreditResult(
         Long memberId,
         Long bookingId,
+        String passengerName,
         int milesAwarded,
         int newBalance,
         MembershipTier membershipTier) {
