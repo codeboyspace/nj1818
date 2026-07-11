@@ -6,6 +6,8 @@ import com.genc.arfoms.loyalty.dto.LoyaltyFlightCreditResult;
 import com.genc.arfoms.loyalty.dto.LoyaltyOffersResponse;
 import com.genc.arfoms.loyalty.model.FrequentFlyer;
 import com.genc.arfoms.loyalty.service.LoyaltyService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +23,7 @@ import java.util.List;
 @RequestMapping("/api/loyalty")
 public class LoyaltyController {
 
+    private final Logger logger = LoggerFactory.getLogger(LoyaltyController.class);
     private final LoyaltyService loyaltyService;
     private final FlightDistanceClient flightDistanceClient;
 
@@ -31,31 +34,37 @@ public class LoyaltyController {
 
     @PostMapping("/enroll")
     public FrequentFlyer enrollFrequentFlyer(@RequestBody FrequentFlyer member) {
+        logger.info("Received request to enroll member: {}", member);
         return loyaltyService.enrollFrequentFlyer(member);
     }
 
     @PatchMapping("/{memberId}/credit")
     public FrequentFlyer creditMiles(@PathVariable Long memberId, @RequestBody MilesRequest request) {
+        logger.info("Received request to credit {} miles to member ID: {}", request.miles(), memberId);
         return loyaltyService.creditMiles(memberId, request.miles());
     }
 
     @PatchMapping("/{memberId}/redeem")
     public FrequentFlyer redeemMiles(@PathVariable Long memberId, @RequestBody MilesRequest request) {
+        logger.info("Received request to redeem {} miles from member ID: {}", request.miles(), memberId);
         return loyaltyService.redeemMiles(memberId, request.miles());
     }
 
     @PatchMapping("/{memberId}/tier")
     public FrequentFlyer upgradeTier(@PathVariable Long memberId) {
+        logger.info("Received request to upgrade tier for member ID: {}", memberId);
         return loyaltyService.upgradeTier(memberId);
     }
 
     @GetMapping("/{memberId}")
     public FrequentFlyer getMember(@PathVariable Long memberId) {
+        logger.info("Received request to fetch member ID: {}", memberId);
         return loyaltyService.getMember(memberId);
     }
 
     @GetMapping
     public List<FrequentFlyer> getAllMembers() {
+        logger.info("Received request to fetch all members");
         return loyaltyService.getAll();
     }
 
@@ -66,26 +75,31 @@ public class LoyaltyController {
 
     @GetMapping("/member/{memberId}")
     public FrequentFlyer getMemberForPortal(@PathVariable Long memberId) {
+        logger.info("Received request to fetch member ID: {} (portal)", memberId);
         return loyaltyService.getMember(memberId);
     }
 
     @GetMapping("/members")
     public List<FrequentFlyer> getMembersForPortal() {
+        logger.info("Received request to fetch all members (portal)");
         return loyaltyService.getAll();
     }
 
     @PostMapping("/credit")
     public FrequentFlyer creditMilesByParam(@RequestParam Long memberId, @RequestParam int miles) {
+        logger.info("Received request to credit {} miles to member ID: {} (param)", miles, memberId);
         return loyaltyService.creditMiles(memberId, miles);
     }
 
     @PostMapping("/redeem")
     public FrequentFlyer redeemMilesByParam(@RequestParam Long memberId, @RequestParam int miles) {
+        logger.info("Received request to redeem {} miles from member ID: {} (param)", miles, memberId);
         return loyaltyService.redeemMiles(memberId, miles);
     }
 
     @PostMapping("/credit-flight")
     public LoyaltyFlightCreditResult creditForCompletedFlight(@RequestBody LoyaltyFlightCreditRequest request) {
+        logger.info("Received request to credit miles for completed flight: member ID {}, booking ID {}, passenger '{}', distance: {} miles", request.memberId(), request.bookingId(), request.passengerName(), request.distanceMiles());
         return loyaltyService.creditMilesForCompletedFlight(
                 request.memberId(), request.bookingId(), request.passengerName(), request.distanceMiles());
     }
@@ -99,6 +113,7 @@ public class LoyaltyController {
     @GetMapping("/offers")
     public LoyaltyOffersResponse getOffers(@RequestParam double distanceMiles,
                                            @RequestParam(required = false) Long memberId) {
+        logger.info("Received request to get offers for member ID: {} based on distance: {} miles", memberId, distanceMiles);
         return loyaltyService.generateOffers(memberId, distanceMiles);
     }
 
@@ -110,12 +125,14 @@ public class LoyaltyController {
     @GetMapping("/offers/by-flight")
     public LoyaltyOffersResponse getOffersForFlight(@RequestParam Long flightId,
                                                     @RequestParam(required = false) Long memberId) {
+        logger.info("Received request to get offers for member ID: {} based on Flight ID: {}", memberId, flightId);
         double distanceMiles = 0;
         try {
             distanceMiles = flightDistanceClient.distanceForFlight(flightId).distanceMiles();
+            logger.info("Fetched flight distance via Feign client: {} miles for Flight ID {}", distanceMiles, flightId);
         } catch (feign.FeignException e) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.BAD_GATEWAY, 
+            logger.error("Failed to fetch distance for Flight ID {} from flight service.", flightId);
+            throw new IllegalStateException(
                 "Flight service returned no distance or failed for flight " + flightId
             );
         }

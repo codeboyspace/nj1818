@@ -12,7 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.server.ResponseStatusException;
+import com.genc.arfoms.flight.exception.NoDataFoundException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -75,7 +75,7 @@ class FlightServiceTest {
                 LocalDateTime.of(2026, 7, 15, 9, 0)); // arrival before departure
 
         assertThatThrownBy(() -> flightService.addFlight(bad))
-                .isInstanceOf(ResponseStatusException.class)
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Arrival time must be after departure time");
 
         verify(flightRepository, never()).save(any());
@@ -87,7 +87,7 @@ class FlightServiceTest {
         Flight bad = buildFlight(null, "XX0000", "DEL", "BOM", null, null);
 
         assertThatThrownBy(() -> flightService.addFlight(bad))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         verify(flightRepository, never()).save(any());
     }
@@ -126,7 +126,7 @@ class FlightServiceTest {
         when(flightRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> flightService.getFlightDetails(99L))
-                .isInstanceOf(ResponseStatusException.class)
+                .isInstanceOf(NoDataFoundException.class)
                 .hasMessageContaining("Flight not found");
     }
 
@@ -147,7 +147,7 @@ class FlightServiceTest {
         when(flightRepository.findByFlightNumber("NONE")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> flightService.getByFlightNumber("NONE"))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(NoDataFoundException.class);
     }
 
     // ---------------------------------------------------------------------
@@ -176,7 +176,7 @@ class FlightServiceTest {
         LocalDateTime arr = LocalDateTime.of(2026, 7, 16, 9, 0);
 
         assertThatThrownBy(() -> flightService.updateSchedule(1L, dep, arr))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         verify(flightRepository, never()).findById(any());
         verify(flightRepository, never()).save(any());
@@ -225,7 +225,7 @@ class FlightServiceTest {
         when(flightRepository.findById(5L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> flightService.deleteFlight(5L))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(NoDataFoundException.class);
 
         verify(flightRepository, never()).delete(any());
     }

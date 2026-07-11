@@ -2,10 +2,15 @@ package com.genc.arfoms.auth;
 
 import com.genc.arfoms.auth.model.User;
 import com.genc.arfoms.auth.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import com.genc.arfoms.auth.exception.PasswordIncorrectException;
+import com.genc.arfoms.auth.exception.UserAlreadyExistsException;
 
 import java.util.Map;
 import java.util.Optional;
@@ -13,6 +18,8 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @Autowired
     private JwtUtils jwtUtils;
@@ -25,8 +32,11 @@ public class AuthController {
         String username = credentials.get("username");
         String password = credentials.get("password");
 
+        logger.info("Login attempt for user: {}", username);
+
         if (username == null || password == null) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Username and password required"));
+            logger.warn("Login failed: Username or password missing.");
+            throw new IllegalArgumentException("Username and password required");
         }
 
         Optional<User> userOpt = userRepository.findByUsername(username);
@@ -34,6 +44,7 @@ public class AuthController {
         if (userOpt.isPresent() && userOpt.get().getPassword().equals(password)) {
             User user = userOpt.get();
             String token = jwtUtils.generateToken(username, user.getRole());
+            logger.info("Login successful for user: {}, role: {}", username, user.getRole());
             return ResponseEntity.ok(Map.of(
                     "token", token,
                     "role", user.getRole(),
@@ -41,17 +52,21 @@ public class AuthController {
             ));
         }
 
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Invalid credentials"));
+        logger.warn("Login failed: Invalid credentials for user: {}", username);
+        throw new PasswordIncorrectException("Invalid credentials");
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody User newUser) {
+        logger.info("Registration attempt for username: {}", newUser.getUsername());
         if (newUser.getUsername() == null || newUser.getPassword() == null || newUser.getRole() == null || newUser.getName() == null) {
-            return ResponseEntity.badRequest().body(Map.of("message", "All fields are required (username, password, name, role)"));
+            logger.warn("Registration failed: Missing required fields.");
+            throw new IllegalArgumentException("All fields are required (username, password, name, role)");
         }
 
         if (userRepository.findByUsername(newUser.getUsername()).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "Username already exists"));
+            logger.warn("Registration failed: Username '{}' already exists.", newUser.getUsername());
+            throw new UserAlreadyExistsException("Username already exists");
         }
 
         // Standardize roles for consistency in the frontend mapping
@@ -66,10 +81,12 @@ public class AuthController {
                 newUser.setRole(role);
                 break;
             default:
-                return ResponseEntity.badRequest().body(Map.of("message", "Invalid role specified"));
+                logger.warn("Registration failed: Invalid role '{}' specified.", role);
+                throw new IllegalArgumentException("Invalid role specified");
         }
 
         User savedUser = userRepository.save(newUser);
+        logger.info("User '{}' registered successfully with ID: {}", savedUser.getUsername(), savedUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "message", "User registered successfully",
                 "userId", savedUser.getId()
@@ -78,7 +95,9 @@ public class AuthController {
 
     @GetMapping("/validate")
     public String validateToken(@RequestParam("token") String token) {
+        logger.info("Validating token...");
         jwtUtils.validateToken(token);
+        logger.info("Token validated successfully.");
         return "Token is valid";
     }
 }

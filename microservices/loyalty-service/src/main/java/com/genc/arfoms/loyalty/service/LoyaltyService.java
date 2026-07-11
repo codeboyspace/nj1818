@@ -7,9 +7,10 @@ import com.genc.arfoms.loyalty.model.FrequentFlyer;
 import com.genc.arfoms.loyalty.model.MemberStatus;
 import com.genc.arfoms.loyalty.model.MembershipTier;
 import com.genc.arfoms.loyalty.repository.FrequentFlyerRepository;
-import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.genc.arfoms.loyalty.exception.NoDataFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.List;
 @Service
 public class LoyaltyService {
 
+    private final Logger logger = LoggerFactory.getLogger(LoyaltyService.class);
     private final FrequentFlyerRepository repository;
 
     public LoyaltyService(FrequentFlyerRepository repository) {
@@ -24,40 +26,60 @@ public class LoyaltyService {
     }
 
     public FrequentFlyer enrollFrequentFlyer(FrequentFlyer member) {
+        logger.info("Enrolling new frequent flyer member: {}", member.getMemberName());
         member.setMilesBalance(0);
         member.setMembershipTier(MembershipTier.SILVER);
-        return repository.save(member);
+        FrequentFlyer enrolled = repository.save(member);
+        logger.info("Successfully enrolled frequent flyer member. Assigned ID: {}", enrolled.getMemberId());
+        return enrolled;
     }
 
     public FrequentFlyer creditMiles(Long memberId, int miles) {
+        logger.info("Crediting {} miles to member ID: {}", miles, memberId);
         FrequentFlyer member = getMember(memberId);
-        member.setMilesBalance(member.getMilesBalance() + miles);
+        int oldBalance = member.getMilesBalance() != null ? member.getMilesBalance() : 0;
+        member.setMilesBalance(oldBalance + miles);
         applyTier(member);
-        return repository.save(member);
+        FrequentFlyer saved = repository.save(member);
+        logger.info("Miles credited. New balance: {}. Tier: {}", saved.getMilesBalance(), saved.getMembershipTier());
+        return saved;
     }
 
     public FrequentFlyer redeemMiles(Long memberId, int miles) {
+        logger.info("Attempting to redeem {} miles from member ID: {}", miles, memberId);
         FrequentFlyer member = getMember(memberId);
-        if (member.getMilesBalance() < miles) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient miles");
+        int currentBalance = member.getMilesBalance() != null ? member.getMilesBalance() : 0;
+        if (currentBalance < miles) {
+            logger.warn("Redemption failed: Insufficient miles balance ({}) for member ID: {}", currentBalance, memberId);
+            throw new IllegalArgumentException("Insufficient miles");
         }
-        member.setMilesBalance(member.getMilesBalance() - miles);
+        member.setMilesBalance(currentBalance - miles);
         applyTier(member);
-        return repository.save(member);
+        FrequentFlyer saved = repository.save(member);
+        logger.info("Redemption successful. New balance: {}. Tier: {}", saved.getMilesBalance(), saved.getMembershipTier());
+        return saved;
     }
 
     public FrequentFlyer upgradeTier(Long memberId) {
+        logger.info("Manual tier upgrade trigger for member ID: {}", memberId);
         FrequentFlyer member = getMember(memberId);
+        MembershipTier oldTier = member.getMembershipTier();
         applyTier(member);
-        return repository.save(member);
+        FrequentFlyer saved = repository.save(member);
+        logger.info("Tier update applied. Old Tier: {}, New Tier: {}", oldTier, saved.getMembershipTier());
+        return saved;
     }
 
     public FrequentFlyer getMember(Long memberId) {
         return repository.findById(memberId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found"));
+                .orElseThrow(() -> {
+                    logger.warn("Member lookup failed: Member ID {} not found", memberId);
+                    return new NoDataFoundException("Member not found");
+                });
     }
 
     public List<FrequentFlyer> getAll() {
+        logger.info("Fetching all frequent flyer members.");
         return repository.findAll();
     }
 
@@ -67,15 +89,18 @@ public class LoyaltyService {
      * from the Booking/Flight modules. Inactive accounts cannot earn miles.
      */
     public LoyaltyFlightCreditResult creditMilesForCompletedFlight(Long memberId, Long bookingId, String passengerName, double distanceMiles) {
+        logger.info("Crediting miles for completed flight: Member: {}, Booking: {}, Distance: {}", memberId, bookingId, distanceMiles);
         FrequentFlyer member = getMember(memberId);
         if (member.getMemberStatus() == MemberStatus.INACTIVE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot credit miles to an inactive account");
+            logger.warn("Miles credit failed: Account is INACTIVE for member ID: {}", memberId);
+            throw new IllegalArgumentException("Cannot credit miles to an inactive account");
         }
         int milesToAward = (int) Math.floor(Math.max(0, distanceMiles));
         int previousBalance = member.getMilesBalance() != null ? member.getMilesBalance() : 0;
         member.setMilesBalance(previousBalance + milesToAward);
         applyTier(member);
         FrequentFlyer saved = repository.save(member);
+        logger.info("Successfully credited {} miles to member ID: {}. New balance: {}, New tier: {}", milesToAward, memberId, saved.getMilesBalance(), saved.getMembershipTier());
         return new LoyaltyFlightCreditResult(
                 saved.getMemberId(), bookingId, passengerName, milesToAward, saved.getMilesBalance(), saved.getMembershipTier());
     }
@@ -91,7 +116,8 @@ public class LoyaltyService {
      */
     public LoyaltyOffersResponse generateOffers(Long memberId, double distanceMiles) {
         if (distanceMiles < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Distance must not be negative");
+            logger.error("Failed to generate offers: Negative distance: {}", distanceMiles);
+            throw new IllegalArgumentException("Distance must not be negative");
         }
 
         MembershipTier tier = MembershipTier.SILVER;
@@ -99,6 +125,7 @@ public class LoyaltyService {
             tier = getMember(memberId).getMembershipTier();
         }
 
+        logger.info("Generating offers for member ID: {} (Tier: {}) for distance: {} miles", memberId, tier, distanceMiles);
         int baseMiles = (int) Math.floor(distanceMiles);
         double tierMultiplier = tierBonusMultiplier(tier);
         List<LoyaltyOffer> offers = new ArrayList<>();
@@ -146,6 +173,7 @@ public class LoyaltyService {
                     "An extra 10% fare discount exclusive to PLATINUM members.", 0, 10, tier));
         }
 
+        logger.info("Generated {} offers for member ID: {}", offers.size(), memberId);
         return new LoyaltyOffersResponse(memberId, distanceMiles, baseMiles, tier, offers);
     }
 
@@ -158,13 +186,17 @@ public class LoyaltyService {
     }
 
     private void applyTier(FrequentFlyer member) {
-        int miles = member.getMilesBalance();
+        int miles = member.getMilesBalance() != null ? member.getMilesBalance() : 0;
+        MembershipTier oldTier = member.getMembershipTier();
         if (miles >= 50000) {
             member.setMembershipTier(MembershipTier.PLATINUM);
         } else if (miles >= 25000) {
             member.setMembershipTier(MembershipTier.GOLD);
         } else {
             member.setMembershipTier(MembershipTier.SILVER);
+        }
+        if (oldTier != member.getMembershipTier()) {
+            logger.info("Member ID {} tier updated from {} to {}", member.getMemberId(), oldTier, member.getMembershipTier());
         }
     }
 }
